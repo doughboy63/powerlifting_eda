@@ -1,0 +1,84 @@
+---
+title: "Powerlifter EDA"
+author: "smd"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+setwd("~/GitHub/powerlifting_eda")
+library(tidyverse)
+library(scales)
+
+lifters_raw <- read_csv("lifters.zip")
+```
+
+```{r}
+lifters <- lifters_raw %>% 
+  mutate(year = year(date)) %>% 
+  mutate(decade = (year %/% 10) * 10) %>% 
+  filter(year >= 2000) %>% 
+  filter(!is.na(best3squat_kg) & !is.na(best3bench_kg) & !is.na(best3deadlift_kg))
+```
+
+
+
+```{r}
+lifters %>% 
+  ggplot(aes(year)) + 
+  geom_bar()
+```
+
+```{r}
+lifters %>% 
+  filter(between(year, 2015, 2023)) %>% 
+  ggplot(aes(bodyweight_kg, total_kg)) + 
+  geom_point() +
+  facet_wrap(~ year) +
+  scale_x_log10() +
+  scale_y_log10()
+```
+```{r}
+mdl_squat <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$best3squat_kg) + 0)
+
+mdl_bench <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$best3bench_kg) + 0)
+
+mdl_deadlift <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$best3deadlift_kg) + 0)
+
+mdl_total <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$total_kg) + 0)
+```
+
+```{r}
+summary(mdl_deadlift)
+
+```
+
+
+```{r}
+lifters %>% 
+  ggplot(aes(as_factor(year), total_kg)) +
+  geom_boxplot() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+
+```{r}
+lifters %>% 
+  filter(age >= 18) %>% 
+  ggplot(aes(as_factor(year), bodyweight_kg)) +
+  geom_boxplot() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+
+```{r}
+lifters %>% 
+  ggplot(aes(as_factor(year), age)) +
+  geom_boxplot() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+filter lifters
+
+
+
