@@ -56,7 +56,7 @@ summary(mdl_deadlift)
 
 ```{r}
 lifters %>% 
-  ggplot(aes(as_factor(year), total_kg)) +
+  ggplot(aes(as_factor(year), log10(total_kg))) +
   geom_boxplot() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
@@ -65,7 +65,7 @@ lifters %>%
 ```{r}
 lifters %>% 
   filter(age >= 18) %>% 
-  ggplot(aes(as_factor(year), bodyweight_kg)) +
+  ggplot(aes(as_factor(year), log10(bodyweight_kg))) +
   geom_boxplot() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
@@ -79,6 +79,14 @@ lifters %>%
 ```
 
 filter lifters
+
+```{r}
+lifters %>% 
+  ggplot(aes(age, total_kg)) + 
+  geom_point() +
+  geom_smooth()
+```
+
 
 
 
