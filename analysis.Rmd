@@ -21,6 +21,9 @@ lifters <- df %>%
   filter(year >= 2000) %>% 
   mutate(half_decade = (year %/% 5) * 5) %>% 
   mutate(decade = (year %/% 10) * 10) %>% 
+  
+  # making sure that I have all of the data required
+  filter(!is.na(age)) %>% 
   filter(!is.na(best3squat_kg) & !is.na(best3bench_kg) & !is.na(best3deadlift_kg))
 ```
 
@@ -74,66 +77,72 @@ lifters %>%
   )
   
 ```
+Doesn't look it.  Let's just confirm with a quick regression...
 
+```{r}
+mdl <- lm(lifters$bodyweight_kg ~ lifters$year)
+tidy(mdl)
+```
+
+I wonder what the impacts of aging on lifts are
 
 ```{r}
 lifters %>% 
-  filter(between(year, 2015, 2023)) %>% 
-  ggplot(aes(bodyweight_kg, total_kg)) + 
+  ggplot(aes(age, total_kg)) + 
   geom_point() +
-  facet_wrap(~ year) +
-  scale_x_log10() +
-  scale_y_log10()
+  geom_smooth() +
+  labs(
+    x = "Age",
+    y = "Total Weight Lifter (kg)", 
+    title = "How does age effect the amount that can be lifted?"
+  )
 ```
-```{r}
-mdl_squat <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$best3squat_kg) + 0)
-
-mdl_bench <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$best3bench_kg) + 0)
-
-mdl_deadlift <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$best3deadlift_kg) + 0)
-
-mdl_total <- lm( log10(lifters$bodyweight_kg) ~ log10(lifters$total_kg) + 0)
-```
-
-```{r}
-summary(mdl_deadlift)
-
-```
-
-
-```{r}
-lifters %>% 
-  ggplot(aes(as_factor(year), log10(total_kg))) +
-  geom_boxplot() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-```
-
-
-```{r}
-lifters %>% 
-  filter(age >= 18) %>% 
-  ggplot(aes(as_factor(year), log10(bodyweight_kg))) +
-  geom_boxplot() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-```
-
-
-```{r}
-lifters %>% 
-  ggplot(aes(as_factor(year), age)) +
-  geom_boxplot() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-```
-
-filter lifters
+It is a little assymetric... could I transform it into a parabola to make modeling easier
 
 ```{r}
 lifters %>% 
   ggplot(aes(log10(age), total_kg)) + 
   geom_point() +
-  geom_smooth()
+  geom_smooth() +
+  labs(
+    x = "log10(Age)",
+    y = "Total Weight Lifter (kg)", 
+    title = "How does age effect the amount that can be lifted?"
+  )
+
 ```
 
 
+```{r}
+lifters %>% 
+  select(age) %>% 
+  arrange(desc(age))
+```
+
+
+```{r}
+reg_data <- lifters %>% 
+  select(total_kg, bodyweight_kg, age, year) %>% 
+  mutate(log_lifted = log10(total_kg)) %>% 
+  mutate(log_bodyweight = log10(bodyweight_kg)) %>% 
+  mutate(log_age = log10(age)) %>% 
+  mutate(squared_log_age = log10(age)^2)
+
+
+mdl <- lm(total_kg ~ squared_log_age + log_age, data = tmp)
+
+tidy(mdl)
+
+```
+
+
+```{r}
+mdl <- lm(log_lifted ~ log_bodyweight + log_age + squared_log_age + year, data = reg_data)
+tidy(mdl)
+```
+
+```{r}
+summary(mdl)
+```
 
 
