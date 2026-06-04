@@ -82,7 +82,7 @@ filter lifters
 
 ```{r}
 lifters %>% 
-  ggplot(aes(age, total_kg)) + 
+  ggplot(aes(log10(age), total_kg)) + 
   geom_point() +
   geom_smooth()
 ```
