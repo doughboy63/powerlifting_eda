@@ -9,25 +9,72 @@ output: html_document
 setwd("~/GitHub/powerlifting_eda")
 library(tidyverse)
 library(scales)
+library(broom)
 
-lifters_raw <- read_csv("lifters.zip")
+df <- read_csv("lifters.zip")
 ```
 
+
 ```{r}
-lifters <- lifters_raw %>% 
+lifters <- df %>% 
   mutate(year = year(date)) %>% 
-  mutate(decade = (year %/% 10) * 10) %>% 
   filter(year >= 2000) %>% 
+  mutate(half_decade = (year %/% 5) * 5) %>% 
+  mutate(decade = (year %/% 10) * 10) %>% 
   filter(!is.na(best3squat_kg) & !is.na(best3bench_kg) & !is.na(best3deadlift_kg))
+```
+
+# Preliminaries
+
+```{r}
+lifters %>% 
+  ggplot(aes(year)) + 
+  geom_bar() +
+  scale_y_continuous(labels = label_comma()) +
+  labs(
+    x = "",
+    y = "",
+    title = "Number of lifts over time"
+  )
+```
+
+Let's start by seeing how the total weight lifted has chaned over time
+
+```{r}
+lifters %>% 
+  ggplot(aes(as_factor(half_decade), total_kg)) +
+  geom_boxplot() +
+  labs(
+    x = "Half Decade",
+    y = "Total Lifted (kg)",
+    title = "Have lifters gotten stronger with time?"
+  )
+  
+```
+
+Maybe... lets do a regression and see?
+
+```{r}
+mdl <- lm(lifters$total_kg ~ lifters$year)
+
+tidy(mdl)
+
 ```
 
 
 
 ```{r}
 lifters %>% 
-  ggplot(aes(year)) + 
-  geom_bar()
+  ggplot(aes(as_factor(half_decade), bodyweight_kg)) +
+  geom_boxplot() +
+  labs(
+    x = "Half Decade",
+    y = "Body Weight (kg)",
+    title = "Have lifters gotten heavier with time?"
+  )
+  
 ```
+
 
 ```{r}
 lifters %>% 
