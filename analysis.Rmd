@@ -5,6 +5,23 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+# Motivation
+
+I was reading Scale by Geoffrey West and there was a bit in there talking about how strength scales with size.  The underlying theory is this: Think of a cube.  If you double the length of the edge, the cross-sectional area of the cube increases by a factor of 4 (= 2^2) and the volume of the cube increases by a factor of eight (=2^3).  If you think of something like a 2x4 used in construction, its ability to support a load is largely driven by its cross-sectional area. You can think of volume as a proxy for weight (= volume * density).  The theory is the relationship between strength and weight is as follows:
+
+$$\text{Strength} = a \cdot \text{Body Weight}^{2/3} $$
+where $a$ is some constant.  There is an 1956 article in Science by M.H. Lietzke (https://www.science.org/doi/10.1126/science.124.3220.486) which assesses this relationship using world record weight-lifting totals and finds good agreement with the theory. I don't have access to the full article because it is behind a paywall but from the first page preview, I know the exponent on body weight was found to be 0.6748 which is very close to the expected 0.66 repeating. 
+
+I am curious to see if I can recreated this on a larger more modern dataset.  
+
+# Setup
+
+I found the following dataset on Kaggle: 
+
+https://www.kaggle.com/datasets/open-powerlifting/powerlifting-database?resource=download&select=openpowerlifting-2024-01-06-4c732975.csv. 
+
+It is very large (a couple of millions of rows) and so I chose to restrict my analysis to male lifters, who used the minimum in equipment aids ("raw" lifts), did all three lift types (squat, bench press and deadlift) and were "tested" for what I assume are performance enhancing drugs.  This filtering was done with the script filtering_raw_data.R and then imported here. I also decided to restrict my analysis to lifters who competed from 2000 and onwards. 
+
 ```{r}
 setwd("~/GitHub/powerlifting_eda")
 library(tidyverse)
@@ -12,22 +29,33 @@ library(scales)
 library(broom)
 
 df <- read_csv("lifters.zip")
-```
 
-
-```{r}
+# some additional cleaning is required required
 lifters <- df %>% 
+  # filter(!is.na(date)) %>% 
+  
   mutate(year = year(date)) %>% 
   filter(year >= 2000) %>% 
   mutate(half_decade = (year %/% 5) * 5) %>% 
   mutate(decade = (year %/% 10) * 10) %>% 
-  
-  # making sure that I have all of the data required
   filter(!is.na(age)) %>% 
-  filter(!is.na(best3squat_kg) & !is.na(best3bench_kg) & !is.na(best3deadlift_kg))
+  filter(!is.na(bodyweight_kg)) %>% 
+  filter(age >= 18) %>% 
+  
+  # while total_kg is already provided, I am doing an explicit calculation here to be certain
+  filter(best3squat_kg > 0) %>% 
+  filter(best3bench_kg > 0) %>% 
+  filter(best3deadlift_kg > 0) %>%
+  mutate(total_kg = best3squat_kg + best3bench_kg + best3deadlift_kg) %>% 
+  filter(!is.na(total_kg))
+
 ```
 
-# Preliminaries
+# Preliminary EDA
+
+As this dataset spans multiple decades, its best to first see if some of the variables I might want to control for in the model change with time. 
+
+## Number of observations
 
 ```{r}
 lifters %>% 
@@ -35,13 +63,21 @@ lifters %>%
   geom_bar() +
   scale_y_continuous(labels = label_comma()) +
   labs(
-    x = "",
-    y = "",
-    title = "Number of lifts over time"
+    x = "Year",
+    y = "Observation Count"
   )
 ```
 
-Let's start by seeing how the total weight lifted has chaned over time
+
+
+
+
+Maybe powerlifting has become more popular or maybe the results from competitions just more likely to be included in the dataset as time progresses. 
+
+## Have lifters become stronger? 
+
+Like with the Lietzke article, I will use the total weight lifted since this will help to eliminate the effect of lifters who are better at some lifts over others.  
+
 
 ```{r}
 lifters %>% 
@@ -49,22 +85,21 @@ lifters %>%
   geom_boxplot() +
   labs(
     x = "Half Decade",
-    y = "Total Lifted (kg)",
-    title = "Have lifters gotten stronger with time?"
+    y = "Total Lifted (kg)"
   )
   
 ```
+There looks to be a slow climb in the median over time as well an increase in the frequency of outliers.  
 
-Maybe... lets do a regression and see?
+Lets confirm the increase in total lift weight using regression
 
 ```{r}
-mdl <- lm(lifters$total_kg ~ lifters$year)
-
-tidy(mdl)
-
+tidy(lm(total_kg ~ year, data = lifters))
 ```
 
+So we are seeing approximate 3 kg increase per year in total lift weight on average. 
 
+# Have lifters become heavier with time?
 
 ```{r}
 lifters %>% 
@@ -72,19 +107,23 @@ lifters %>%
   geom_boxplot() +
   labs(
     x = "Half Decade",
-    y = "Body Weight (kg)",
-    title = "Have lifters gotten heavier with time?"
+    y = "Body Weight (kg)"
   )
   
 ```
-Doesn't look it.  Let's just confirm with a quick regression...
+
+
+It looks quite flat to me. Some of the top end outliers are a little concerning.  While it is still possible, a 200+ kg (440+ lb) lifter seems unlikely.  There may be some data quality issues.
+
+Again, I will run a regression to check my hunch.
 
 ```{r}
-mdl <- lm(lifters$bodyweight_kg ~ lifters$year)
-tidy(mdl)
+tidy(lm(bodyweight_kg ~ year, data = lifters))
 ```
 
-I wonder what the impacts of aging on lifts are
+The slope is looks to be statistically significant but very small and negative meaning that lifters are getting slightly lighter with time.  
+
+# How does age impact the amount you can lift?
 
 ```{r}
 lifters %>% 
@@ -93,10 +132,12 @@ lifters %>%
   geom_smooth() +
   labs(
     x = "Age",
-    y = "Total Weight Lifter (kg)", 
-    title = "How does age effect the amount that can be lifted?"
+    y = "Total Weight Lifter (kg)"
   )
 ```
+
+
+
 It is a little assymetric... could I transform it into a parabola to make modeling easier
 
 ```{r}
@@ -144,5 +185,8 @@ tidy(mdl)
 ```{r}
 summary(mdl)
 ```
+
+
+Moreover, the lifts used in the Lietzke analysis are the press, the snatch and 
 
 
