@@ -1,6 +1,6 @@
 ---
-title: "Powerlifter EDA"
-author: "smd"
+title: "Power Laws for Power Lifters"
+author: "Sean Dougherty"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -135,58 +135,40 @@ lifters %>%
     y = "Total Weight Lifter (kg)"
   )
 ```
+It looks like the peak in weightlifting ability happens around 25 years of age. I will need a quadratic term in my final model to control for this. 
 
+# Modelling
 
-
-It is a little assymetric... could I transform it into a parabola to make modeling easier
+Given what I learned in the preliminary EDA section, I think I am in a good position to build a model. I'll do a linear regression with log10(total weight lifted) as the response variable and log10(body weight in kg) as the explanatory variable. The slope between these two variables equals the exponent term of the model presented in the Motivation section. I will also include linear terms in age and year as well as a quadratic term in age in an effort to try and control for these variables.  
 
 ```{r}
-lifters %>% 
-  ggplot(aes(log10(age), total_kg)) + 
-  geom_point() +
-  geom_smooth() +
-  labs(
-    x = "log10(Age)",
-    y = "Total Weight Lifter (kg)", 
-    title = "How does age effect the amount that can be lifted?"
-  )
+model1_data <- lifters %>% 
+  select(
+    total_kg, 
+    bodyweight_kg,
+    age,
+    year
+  ) %>% 
+  mutate(log_total_kg = log10(total_kg)) %>% 
+  mutate(log_bodyweight_kg = log10(bodyweight_kg)) %>%
+  mutate(age_squared = age * age) 
+    
+tidy(lm(log_total_kg ~ log_bodyweight_kg + age_squared + age + year, model1_data))
+```
+Taking an alpha of 5%, we see that all terms in the model are statistically significant.  The slope associated with the log10(bodyweight) is 0.548 (0.001).  This is less than the theoretical 0.66 repeating and the 0.675 measured by Lietzke in 1956. Maybe my controls are working that well. To test this, I'll fit another model where I will control for year and age directly through filtering.  I will only consider lifters between the ages of 20 and 30 and I will only use competitions from 2023 (n = 27020). 
+
+```{r}
+model2_data <- model1_data %>% 
+  filter(between(age, 20, 30)) %>%
+  filter(year == 2023)
+
+tidy(lm(log_total_kg ~ log_bodyweight_kg, model2_data))
 
 ```
 
+I find a value of 0.515 (0.005) for the exponent which is even further from my original estimate.  It follows that I will stay with my original estimate of 0.548 (0.001) for the exponent value. 
 
-```{r}
-lifters %>% 
-  select(age) %>% 
-  arrange(desc(age))
-```
-
-
-```{r}
-reg_data <- lifters %>% 
-  select(total_kg, bodyweight_kg, age, year) %>% 
-  mutate(log_lifted = log10(total_kg)) %>% 
-  mutate(log_bodyweight = log10(bodyweight_kg)) %>% 
-  mutate(log_age = log10(age)) %>% 
-  mutate(squared_log_age = log10(age)^2)
-
-
-mdl <- lm(total_kg ~ squared_log_age + log_age, data = tmp)
-
-tidy(mdl)
-
-```
-
-
-```{r}
-mdl <- lm(log_lifted ~ log_bodyweight + log_age + squared_log_age + year, data = reg_data)
-tidy(mdl)
-```
-
-```{r}
-summary(mdl)
-```
-
-
-Moreover, the lifts used in the Lietzke analysis are the press, the snatch and 
-
+# Conclusion
+world record holders were used
+different kinds of lifts; much more power and flexibility is required than with the power lifters big 3 
 
